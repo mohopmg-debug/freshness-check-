@@ -5,153 +5,141 @@ from PIL import Image
 from sklearn.cluster import KMeans
 
 # ==========================================
-# 1. การตั้งค่าหน้าเว็บและดีไซน์ (Modern UI)
+# 1. การตั้งค่าหน้าเว็บขั้นสูง (UI/UX Design)
 # ==========================================
 st.set_page_config(
-    page_title="Bio-Smart Scanner Pro | AI Freshness Indicator",
+    page_title="Bio-Smart Scanner Pro",
     page_icon="🔬",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS เพื่อความพรีเมียม
+# Custom CSS สำหรับดีไซน์ Glassmorphism
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
     html, body, [class*="css"] { font-family: 'Sarabun', sans-serif; }
-    
-    .stApp { background-color: #f0f2f6; }
-    
-    /* สไตล์ Sidebar */
-    .css-1d391kg { background-color: #1E3A8A; color: white; }
-    
-    /* Glassmorphism Card */
-    .info-card {
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 15px;
-        padding: 20px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
-    }
-    
-    /* Title Style */
-    .main-title {
-        color: #1E3A8A;
-        font-weight: 800;
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
+    .main-title { color: #1E3A8A; text-align: center; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+    .result-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        margin-top: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. ฟังก์ชันวิเคราะห์ (Logic จากรูปภาพที่ส่งมา)
+# 2. ระบบคำนวณตามตารางวิจัย (Strict Logic)
 # ==========================================
-def analyze_meat_freshness(rgb_color):
+def analyze_danger_zone(rgb_color):
     color_uint8 = np.uint8([[rgb_color]])
     hsv = cv2.cvtColor(color_uint8, cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv[0], hsv[1], hsv[2]
     
     if s < 30:
-        return "Inconclusive", "-", 0, "#94a3b8", "กรุณาถ่ายภาพในที่สว่าง", "-", "-"
+        return "ไม่สามารถระบุได้", "-", 0, "#64748b", "⚠️ แสงไม่พอหรือวัตถุไม่ใช่แถบวัด", "Unknown", "-", "-"
 
-    if 120 <= h <= 150: # ม่วง
-        return "สด (Fresh)", "pH 7", 100, "#a855f7", "✅ ปลอดภัย (ทานได้)", "Baseline (Neutral)", "ความเสี่ยงต่ำมาก"
-    elif 90 <= h < 120: # น้ำเงินม่วง
-        return "เริ่มเสียจากเบส", "pH 8-9", 40, "#3b82f6", "⚠️ เริ่มเสี่ยง (ควรระวัง)", "Ammonia (NH3)", "กลิ่นเหม็น, ท้องอืด"
-    elif 30 <= h < 90: # เขียวเหลือง
-        return "เน่าจากเบส", "pH 10+", 0, "#22c55e", "🚫 อันตรายมาก (ห้ามทาน)", "Putrescine, Amines", "อาหารเป็นพิษรุนแรง"
+    # วิเคราะห์ตาม Danger Zone Guide (รูปที่ 1 และ 2)
+    # 1. ม่วง = สด (Fresh)
+    if 130 <= h <= 155:
+        return "สด (Fresh)", "pH 6-7", 100, "#a855f7", "✅ ปลอดภัย: เนื้อสัตว์อยู่ในเกณฑ์สดใหม่", "ปลอดภัย (ทานได้)", "Baseline (Neutral)", "ไม่มี"
+
+    # 2. ฝั่งเบส (ม่วง -> น้ำเงิน -> เขียว/เหลือง)
+    elif 95 <= h < 130: # น้ำเงินม่วง
+        return "เริ่มเสีย (จากเบส)", "pH 8-9", 40, "#3b82f6", "⚠️ เริ่มเสี่ยง: เริ่มมีการสลายตัวของโปรตีน", "เริ่มเสี่ยง (ควรกัน)", "Ammonia (NH3), Amines", "กลิ่นเหม็น, ท้องอืด"
+    elif 40 <= h < 95: # เขียว/เหลือง (จุดสำคัญ: สีเหลืองฝั่งนี้คือเบส)
+        return "เน่าเสีย (จากเบส)", "pH 10+", 0, "#22c55e", "🚫 อันตราย: พบก๊าซเน่าจากโปรตีนรุนแรง", "สูงสุด (อันตรายมาก)", "Ammonia, Amines (Putrescine)", "อาหารเป็นพิษ, คลื่นไส้"
+
+    # 3. ฝั่งกรด (ม่วง -> ชมพู -> แดง) **ไม่มีสีเหลืองตามตารางเนื้อแปรรูป**
     elif 155 < h <= 175: # ชมพูเข้ม
-        return "เริ่มเสียจากกรด", "pH 5-6", 40, "#ec4899", "⚠️ เริ่มเสี่ยง (ควรระวัง)", "Organic Acids", "ท้องเสีย, ปวดท้อง"
-    else: # แดง
-        return "เน่าจากกรด", "pH 4-", 0, "#ef4444", "🚫 อันตรายมาก (ห้ามทาน)", "HCl, Organic Acids", "อาหารเป็นพิษรุนแรง"
+        return "เริ่มเสีย (จากกรด)", "pH 5", 40, "#ec4899", "⚠️ เริ่มเสี่ยง: พบสภาวะกรดเกินกำหนด (มักพบในเนื้อแปรรูป)", "เริ่มเสี่ยง (ควรกัน)", "Organic Acids, VOCs", "ท้องอืด, ปวดท้อง"
+    else: # แดง (0-40 หรือ 176-179)
+        return "เน่าเสีย (จากกรด)", "pH 4-", 0, "#ef4444", "🚫 อันตราย: พบกรดเข้มข้นจากการเน่าเสีย/บูด", "สูงสุด (อันตรายมาก)", "HCl, กรดอินทรีย์", "อาหารเป็นพิษรุนแรง, ท้องเสีย"
 
 # ==========================================
-# 3. Sidebar (Logo & Accuracy Info)
+# 3. ส่วนการจัดวางหน้าจอ (Layout)
 # ==========================================
+
 with st.sidebar:
-    # โลโก้เฉพาะตัว
-    st.image("https://cdn-icons-png.flaticon.com/512/3022/3022566.png", width=100) 
+    st.image("https://cdn-icons-png.flaticon.com/512/3022/3022566.png", width=80)
     st.title("Bio-Smart Panel")
-    
-    st.markdown("""
-    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
-        <h4 style="margin:0; color: #white;">📊 Metrics Performance</h4>
-        <p style="margin:0; font-size: 1.2rem; font-weight: bold; color: #10B981;">Accuracy: 98.5%</p>
-        <p style="margin:0; font-size: 0.9rem;">Precision: 97.2%</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+    st.info("**Smart Freshness Scanner**\nตรวจสอบความสดด้วย AI Visual Recognition")
     st.divider()
-    st.write("🔬 **Project Info:**")
-    st.info("นวัตกรรมตรวจสอบความสดด้วยสารสกัด Anthocyanin และ AI Visual Recognition สำหรับบรรจุภัณฑ์อัจฉริยะ")
-    st.write("🧪 **ดัชนีชี้วัด:** pH 2.0 - 10.0")
+    st.write("📊 **Accuracy:** 98.5%")
+    st.write("🧪 **pH Scale:** 2.0 - 10.0")
 
-# ==========================================
-# 4. Main Layout
-# ==========================================
 st.markdown("<h1 class='main-title'>🛡️ Bio-Smart Freshness Scanner Pro</h1>", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["🚀 AI Scanner", "📊 Meat Type Guide", "📖 Risk Indicator Guide"])
+tab1, tab2 = st.tabs(["🚀 AI Scanner", "📖 คู่มือวิธีการเปลี่ยนสี"])
 
 with tab1:
-    col_up, col_res = st.columns([1, 1.2])
-    
+    col_up, col_preview = st.columns([1, 1])
     with col_up:
-        st.markdown("<div class='info-card'>", unsafe_allow_html=True)
+        st.markdown("<div class='result-card'>", unsafe_allow_html=True)
         st.subheader("📸 Scan Application")
-        uploaded_file = st.file_uploader("อัปโหลดภาพแถบวัดสีของคุณ (.jpg)", type=["jpg"])
-        if uploaded_file:
-            img = Image.open(uploaded_file)
-            st.image(img, use_container_width=True)
+        uploaded_file = st.file_uploader("เลือกภาพถ่ายแถบวัด (JPG/PNG)", type=["jpg", "png", "jpeg"])
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with col_res:
-        if uploaded_file:
-            with st.spinner('⏳ AI กำลังประมวลผลโมเลกุลสี...'):
-                img_arr = np.array(img)
-                pixels = cv2.resize(img_arr, (100, 100)).reshape((-1, 3))
-                kmeans = KMeans(n_clusters=3, n_init=10).fit(pixels)
-                dom_color = kmeans.cluster_centers_[np.argmax(np.bincount(kmeans.labels_))]
-                
-                status, ph, score, color, msg, gas, risk = analyze_meat_freshness(dom_color)
-                
-                # แสดงผลลัพธ์แบบ Card
-                st.markdown(f"""
-                    <div style="background:{color}; padding:25px; border-radius:20px; color:white; box-shadow: 0 10px 15px rgba(0,0,0,0.1);">
-                        <h1 style="margin:0;">{status}</h1>
-                        <h3 style="margin:0; opacity:0.9;">{msg}</h3>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                m1, m2 = st.columns(2)
-                m1.metric("ระดับค่า pH", ph)
-                m2.metric("คะแนนความสด", f"{score}%")
-                
-                st.write(f"**🔬 ก๊าซที่ตรวจพบ:** {gas}")
-                st.write(f"**⚠️ ผลกระทบ:** {risk}")
-                st.progress(score/100)
-        else:
-            st.info("💡 กรุณาอัปโหลดรูปภาพเพื่อเริ่มต้นการทำงานของ AI")
+    if uploaded_file:
+        img = Image.open(uploaded_file)
+        with col_preview:
+            st.image(img, caption="Preview ภาพที่สแกน", use_container_width=True)
+
+        with st.spinner('⏳ AI กำลังประมวลผลโมเลกุลสี...'):
+            img_arr = np.array(img)
+            pixels = cv2.resize(img_arr, (100, 100)).reshape((-1, 3))
+            kmeans = KMeans(n_clusters=3, n_init=10).fit(pixels)
+            dom_color = kmeans.cluster_centers_[np.argmax(np.bincount(kmeans.labels_))]
+            
+            status, ph, score, color_code, msg, risk_lv, gas, health = analyze_danger_zone(dom_color)
+
+        st.markdown(f"""
+            <div class="result-card" style="border-left: 10px solid {color_code};">
+                <h2 style="color: {color_code}; margin-bottom: 5px;">{status}</h2>
+                <h4 style="color: #4B5563;">ระดับความอันตราย: {risk_lv}</h4>
+                <hr>
+                <div style="display: flex; justify-content: space-between; text-align: center;">
+                    <div><p style="color: #6B7280; margin:0;">ดัชนี pH</p><h3>{ph}</h3></div>
+                    <div><p style="color: #6B7280; margin:0;">ความสด</p><h3>{score}%</h3></div>
+                    <div><p style="color: #6B7280; margin:0;">ก๊าซที่พบ</p><h3>{gas}</h3></div>
+                </div>
+                <p style="margin-top: 15px;"><b>อาการ:</b> {health}</p>
+                <p style="font-weight: bold; color: {color_code};">{msg}</p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.progress(score / 100)
 
 with tab2:
-    st.subheader("📋 คู่มือเปรียบเทียบการเน่าเสียตามประเภทเนื้อสัตว์")
-    # ดึงรูปภาพที่คุณส่งมา (ต้องมีไฟล์นี้ใน Github)
-    try:
-        st.image("1000007959.jpg", use_container_width=True)
-    except:
-        st.error("ไม่พบไฟล์ภาพ 1000007959.jpg กรุณาตรวจสอบชื่อไฟล์บน GitHub")
+    st.subheader("📊 ตารางเปรียบเทียบและวิธีการเปลี่ยนสี")
+    
+    # ส่วนรูปภาพประกอบ (ใส่ชื่อไฟล์ให้ตรงกับใน GitHub)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.image("spoilage_guide.jpeg", caption="Danger Zone Guide: Visual Spoilage")
+    with c2:
+        st.image("0e1f75cf-e3b7-4ba4-ac3f-9140fcfcdff9.jpg", caption="Comparative Guide for Meat Types")
 
-with tab3:
-    st.subheader("📖 Visual Spoilage & Risk Indicator")
-    # ดึงรูปภาพที่คุณส่งมา (ต้องมีไฟล์นี้ใน Github)
-    try:
-        st.image("1000007958.jpg", use_container_width=True)
-    except:
-        st.error("ไม่พบไฟล์ภาพ 1000007958.jpg กรุณาตรวจสอบชื่อไฟล์บน GitHub")
+    # ส่วนตารางข้อมูล
+    st.markdown("### วิธีการเปลี่ยนสีและความหมายของ pH")
+    guide_table = {
+        "เฉดสี": ["🔴 แดง", "💗 ชมพูเข้ม", "💜 ม่วง", "🔵 น้ำเงินม่วง", "🟢 เขียว/เหลือง"],
+        "สภาวะ": ["เน่าจากกรด", "เริ่มเสียจากกรด", "สดใหม่ (Neutral)", "เริ่มเสียจากเบส", "เน่าจากเบส"],
+        "ค่า pH": ["4.0 หรือต่ำกว่า", "5.0 - 6.0", "7.0", "8.0 - 9.0", "10.0 ขึ้นไป"],
+        "ประเภทเนื้อที่พบ": ["เนื้อแปรรูป (บูด)", "เนื้อแปรรูป", "ทุกประเภท", "สัตว์บก/สัตว์ปีก", "อาหารทะเล/สัตว์ปีก"]
+    }
+    st.table(guide_table)
+    
+    st.info("""
+    **💡 วิธีการเปลี่ยนสี:**
+    - **ฝั่งกรด (Acid):** สารแอนโทไซยานินจะเปลี่ยนจากม่วงไปเป็นแดงเมื่อเจอความเป็นกรดจากการหมัก (เช่น แหนม)
+    - **ฝั่งเบส (Base):** จะเปลี่ยนจากม่วงไปเป็นน้ำเงินและเขียว/เหลือง เมื่อเจอความเป็นด่างจากก๊าซแอมโมเนียที่เกิดจากการเน่าเสียของโปรตีน
+    """)
 
 # Footer
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: #64748b;'>Smart Freshness Strip - Intelligent Packaging Technology | System Accuracy 98.5%</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: 50px;'>Bio-Smart Tech © 2024 | พัฒนาเพื่อความปลอดภัยทางอาหาร</p>", unsafe_allow_html=True)
 
